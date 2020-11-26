@@ -14,14 +14,16 @@ BeautifulSoup4: 4.9.1
 
 ## About running
 
-`download.py`: Download comic using given URL (eg. https://e-hentai.org/g/xxxxxx/xxxxxx/). The function is not complete, and I will not update it in the future. 
+`download.py`: Download comic using given gallery URL (eg. https://e-hentai.org/g/xxxxxx/xxxxxx/). This file is just a  reference code from others and it will not be updated it in the future. 
 
-`spider.py`: It can search comics according to user's will, and it will download all searched comics.  Using https://e-hentai.org/lofi, because it  is easier to design crawler code and find elements in html/xml basing on 'lofi'.
+`spider.py`: It can search comics according to user's will, and it will download all searched comics. Basing on low coupling, download function (aiming at search results, gallery or only one page) can be used according to user's need.
 
 ## TODO list
 
-1. Catch exception (solving SSLEroor)
-2. Request timeout processing(timeout threshold and maximum number of re-requests)
+1. ~~Catch exception~~
+2. ~~Request timeout processing(timeout threshold and maximum number of re-requests)~~
 3. Augmenting robustness
-4. Using IPProxyPool to cope with IP detection
+4. Using IPProxyPool to cope with IP detection (I randomly set period to limit request interval for now)
+5. Using Redis to re-download files that filed to download in `dir_url`.
+6. Better user experience (maybe console interation), better modular code.
 

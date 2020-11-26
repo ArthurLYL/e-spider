@@ -1,9 +1,21 @@
 import requests
 import os
 from bs4 import BeautifulSoup
-headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36', 'Connection': 'close'}
+import re
+import math
+import time
+import random
+
+headers = [{
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36',
+    'Connection': 'Keep-Alive'}, {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.66 Safari/537.36 Edg/87.0.664.41',
+    'Connection': 'Keep-Alive'}]
 proxies = {'http': 'http://127.0.0.1:25378', 'https': 'http://127.0.0.1:25378'}  # setting proxy
 path = 'E:/comic/'  # saving path
+max_try = 3  # maximum number of trying to download a page of the comic
+rstr = r"[\/\\\:\*\?\"\<\>\|]"  # '/ \ : * ? " < > |' filter invalid symbols in comic name
+host = 'https://e-hentai.org/?page='  # search
 
 
 def get_content(url):
@@ -12,41 +24,69 @@ def get_content(url):
     :param url: url
     :return: BeautifulSoup in lxml
     """
-    site = requests.get(url, headers=headers, proxies=proxies)
+    site = requests.get(url, headers=headers[random.randint(0, 1)], proxies=proxies)
+    time.sleep(random.randint(1, 10))
     content = site.text
     soup = BeautifulSoup(content, 'lxml')
     return soup
 
 
-def next_page(url):
+def turned_exist(url):
     """
-    check whether there is next page
+    check whether turned page exists
     :param url:
-    :return: next page exists => 1 else => 0
+    :return: this page exists => 1 else => 0
     """
+    # not used
     soup = get_content(url)
-    if soup.find('Next Page') != -1:
+    soup.find_all(class_='itg gltc')
+    if soup.find_all(class_='itg gltc')[0].td.text != 'No unfiltered results in this page range. You either requested an invalid page or used too aggressive filters.':
         return 1
     else:
         return 0
 
 
-def dic_url(url):
+def search_exist(url):
     """
-    download all comics in research result
-    :param url: url of research result
-    :return:
+    check whether search content is valid
+    :param url:
+    :return: 1 => valid, 0=> invalid
     """
     soup = get_content(url)
-    dic = soup.find_all(class_='b')
-    order = 0
-    for x in range(1, len(dic) - 1):
-        # print(dic[order]['href'])
-        print('The comic name is ' + dic[order].text + ', start downloading')
-        print(dic[order]['href'])
-        get_images(dic[order]['href'], dic[order].text)
-        order += 1
-    return
+    if soup.find('p', style='text-align:center; font-style:italic; margin-bottom:10px') is None:
+        return 1
+    else:
+        return 0
+
+
+def dic_url(link, search):
+    """
+    download all comics in research result
+    :param link:
+    :param search: search content
+    :return:
+    """
+    url = link + str(0) + search
+    if search_exist(url):
+        soup = get_content(url)
+        text = soup.find_all('p', class_='ip')[0].text
+        pattern = re.compile('[0-9]+')
+        # Using regular expression to fetch the number of comic books
+        urls = re.search(pattern, text).group()
+        print('There are ' + str(urls) + ' comic books in all')
+        url_number = math.ceil(math.ceil(int(urls) / 25))
+        for i in range(0, url_number):
+            cur_url = link + str(i) + search
+            soup = get_content(cur_url)
+            links = soup.find_all('td', class_='gl3c glname')
+            for dic in links:
+                print('*' * 3 + 'Start downloading ' + dic.div.text + '*' * 3)
+                print('Gallery URL: ' + dic.a.get('href'))
+                get_gallery(dic.a.get('href'), dic.div.text)
+                print('*' * 50 + 'complete' + '*' * 50)
+    else:
+        print('Search error!')
+    print('Done')
 
 
 def image_download(url, page, name):
@@ -58,58 +98,62 @@ def image_download(url, page, name):
     :return:
     """
     soup = get_content(url)
-    img_url = soup.find_all('img', id='sm')[0]['src']
+    img_url = soup.find('img', id='img')['src']
     # print(img_url[0]['src'])
-    response = requests.get(img_url, headers=headers, proxies=proxies)
-    with open(path + name + '/' + str(page) + '.jpg', 'wb') as f:
-        f.write(response.content)
-        f.flush()
+    for i in range(1, max_try + 1):
+        try:
+            response = requests.get(img_url, headers=headers[random.randint(0, 1)], proxies=proxies, timeout=61)
+            time.sleep(random.randint(1, 10))
+        except Exception as e:
+            print(str(i) + ' time download try failed')
+            if max_try == i:
+                print(e)
+                print('Failed URL: ' + img_url)
+                raise e
+        else:
+            print(str(i) + ' time download try succeed')
+            with open(path + name + '/' + str(page) + '.jpg', 'wb') as f:
+                f.write(response.content)
+                f.flush()
+            return
 
 
-def get_images(url, name):
+def get_gallery(url, name):
     """
-    download one of comics
+    download one of searched comics
     :param url: url of a searched comic
     :param name: name of a comic
     :return:
     """
+    name = re.sub(rstr, '', name)
     if os.path.exists(path + name) is False:
         os.mkdir(path + name)
-    soup = get_content(url)
-    all_img = soup.find_all(rel='nofollow')
-    i = 1
-    cur_url = url
+    soup_g = get_content(url)
+    text = soup_g.find('p', class_='gpc').text
+    pattern = re.compile('[0-9]+')
+    urls = re.findall(pattern, text)
+    url_number = math.ceil(math.ceil(int(urls[2]) / int(urls[1])))
     page = 1
-    for img in all_img:
-        if os.path.exists(path + name + '/' + str(page) + '.jpg'):
-            page += 1
-            continue
-        print('Saving file ' + name + str(page) + '.jpg')
-        image_download(img['href'], page, name)
-        page += 1
-    while next_page(cur_url) != 0:
-        cur_url = url + "%d"%i
-        i += 1
+    fail = 0
+    for _url in range(0, url_number):
+        cur_url = url + '?p=' + str(_url)
         soup = get_content(cur_url)
-        all_img = soup.find_all(rel='nofollow')
-        # all_img += all_img_new
-        for img in all_img:
+        all_imgs = soup.find_all(class_='gdtm')  # all sheet urls of a comic
+        for img in all_imgs:
             if os.path.exists(path + name + '/' + str(page) + '.jpg'):
                 page += 1
                 continue
             print('Saving file ' + name + str(page) + '.jpg')
-            image_download(img['href'], page, name)
+            try:
+                image_download(img.a.get('href'), page, name)
+            except:
+                print('The ' + str(page) + ' page of ' + name + '.jpg download failed')
+                fail += 1
             page += 1
-    # page = 1
-    # for img in all_img:
-    #     print('Saving file ' + name + str(page) + '.jpg')
-    #     image_download(img['href'], page, name)
-    #     page += 1
+    print('download complete, ' + str(fail) + ' pages download fail overall')
 
 
-page_link = 'https://e-hentai.org/lofi/?f_search=shindol+chinese'  # search
+search_content = '&f_search=shindol+chinese'
 
 if __name__ == '__main__':
-    dic_url(page_link)
-# example of a url of a comic 'https://e-hentai.org/lofi/g/531176/a5b2fa21f0/'
-# example of the first page url of a comic "https://e-hentai.org/lofi/s/7f9e010977/531176-1"
+    dic_url(host, search_content)
