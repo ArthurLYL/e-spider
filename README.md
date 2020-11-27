@@ -27,3 +27,14 @@ BeautifulSoup4: 4.9.1
 5. Using Redis to re-download files that filed to download in `dir_url`.
 6. Better user experience (maybe console interation), better modular code.
 
+## Reference
+
+https://www.cnblogs.com/Albertiy/p/12022303.html
+
+https://blog.csdn.net/weixin_41732074/article/details/87287726
+
+https://blog.csdn.net/qq_26646141/article/details/54970934
+
+https://www.cnblogs.com/qjfoidnh/p/11569197.html
+
+http://blog.lastation.me/?p=79
